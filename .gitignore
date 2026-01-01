@@ -1,0 +1,13 @@
+# build artifacts
+*.o
+*.bin
+*.iso
+
+# iso dir
+iso/
+
+# vscode junk
+.vscode/
+
+# qemu temp
+*.log
