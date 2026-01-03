@@ -1,44 +1,56 @@
-ARCH=x86_64
-CC=gcc
-LD=ld
-AS=nasm
+ARCH = i386
+CC   = gcc
+LD   = ld
+AS   = nasm
 
-CFLAGS = -m32 -ffreestanding -fno-pie -fno-stack-protector -O2 -Wall -Wextra
+CFLAGS  = -m32 -ffreestanding -fno-pie -fno-stack-protector -O2 -Wall -Wextra \
+          -Ikernel -Ikernel/interrupts -I.
 LDFLAGS = -m elf_i386 -T linker.ld -nostdlib
 
+KERNEL   = kernel.bin
+ISO      = Ebrahim-OS.iso
+ISO_DIR  = iso
+BOOT_DIR = $(ISO_DIR)/boot
+GRUB_DIR = $(BOOT_DIR)/grub
 
-ISO_DIR=iso
-BOOT_DIR=$(ISO_DIR)/boot
-GRUB_DIR=$(BOOT_DIR)/grub
-
-KERNEL=kernel.bin
+OBJS = boot/multiboot.o \
+       kernel/kernel.o kernel/vga.o kernel/gdt.o \
+       kernel/interrupts/idt.o kernel/interrupts/irq.o kernel/interrupts/isr.o
 
 all: $(KERNEL)
 
-multiboot.o:
-	$(AS) -f elf32 boot/multiboot.asm -o multiboot.o
+$(KERNEL): $(OBJS)
+	$(LD) $(LDFLAGS) $(OBJS) -o $(KERNEL)
 
+boot/multiboot.o: boot/multiboot.asm
+	$(AS) -f elf32 $< -o $@
 
-kernel.o:
-	$(CC) $(CFLAGS) -c kernel/kernel.c -o kernel.o
-	$(CC) $(CFLAGS) -c kernel/vga.c -o vga.o
+kernel/interrupts/isr.o: kernel/interrupts/isr.asm
+	$(AS) -f elf32 $< -o $@
 
+kernel/kernel.o: kernel/kernel.c
+	$(CC) $(CFLAGS) -c $< -o $@
 
-$(KERNEL): multiboot.o kernel.o
-	$(LD) $(LDFLAGS) multiboot.o kernel.o vga.o -o $(KERNEL)
+kernel/vga.o: kernel/vga.c
+	$(CC) $(CFLAGS) -c $< -o $@
 
+kernel/gdt.o: kernel/interrupts/gdt.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
+kernel/interrupts/idt.o: kernel/interrupts/idt.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
+kernel/interrupts/irq.o: kernel/interrupts/irq.c
+	$(CC) $(CFLAGS) -c $< -o $@
 
 iso: $(KERNEL)
-	mkdir -p $(BOOT_DIR) $(GRUB_DIR)
+	mkdir -p $(GRUB_DIR)
 	cp $(KERNEL) $(BOOT_DIR)
 	cp boot/grub/grub.cfg $(GRUB_DIR)
-	GRUB_PLATFORM=i386-pc grub-mkrescue -o Ebrahim-OS.iso iso
-
-
+	grub-mkrescue -o $(ISO) $(ISO_DIR)
 
 run: iso
-	qemu-system-x86_64 -cdrom Ebrahim-OS.iso -boot d
-
+	qemu-system-i386 -no-reboot -no-shutdown -cdrom $(ISO)
 
 clean:
-	rm -rf *.o *.bin iso *.iso
+	rm -rf boot/*.o kernel/*.o kernel/interrupts/*.o *.o $(KERNEL) $(ISO) $(ISO_DIR)

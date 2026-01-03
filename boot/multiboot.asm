@@ -15,13 +15,23 @@ header_start:
     dd 8
 header_end:
 
+section .bss
+align 16
+stack_bottom:
+    resb 16384        ; 16 KB stack
+stack_top:
+
 section .text
 global _start
 extern kernel_main
 
 _start:
     cli
+    mov esp, stack_top   ; 🔥 THIS IS WHAT YOU WERE MISSING
+    mov ebp, esp
+
     call kernel_main
+
 .hang:
     hlt
     jmp .hang
